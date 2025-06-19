@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - API Key Wallet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+            color: #1a202c;
+        }
+        
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            width: 250px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 2rem 0;
+            z-index: 1000;
+        }
+        
+        .logo {
+            padding: 0 2rem;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 2rem;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 2rem;
+            color: #718096;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        
+        .nav-item:hover, .nav-item.active {
+            background: #f7fafc;
+            color: #667eea;
+            border-right: 3px solid #667eea;
+        }
+        
+        .nav-item i {
+            margin-right: 0.75rem;
+            width: 20px;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 2rem;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: #667eea;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2d3748;
+        }
+        
+        .stat-label {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        .stat-change {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .stat-change.positive {
+            color: #10b981;
+        }
+        
+        .stat-change.negative {
+            color: #ef4444;
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        
+        .key-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border: 1px solid #f1f5f9;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .key-info h4 {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .key-info p {
+            font-size: 0.8rem;
+            color: #718096;
+        }
+        
+        .key-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .chart-placeholder {
+            height: 200px;
+            background: #f8fafc;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #718096;
+            border: 2px dashed #e2e8f0;
+        }
+        
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .activity-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #718096;
+        }
+        
+        .activity-content {
+            flex: 1;
+        }
+        
+        .activity-title {
+            font-weight: 500;
+            color: #2d3748;
+            font-size: 0.9rem;
+        }
+        
+        .activity-time {
+            font-size: 0.8rem;
+            color: #718096;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">🚀 API Key Wallet</div>
+        
+        <nav>
+            <a href="#" class="nav-item active">
+                <i class="fas fa-tachometer-alt"></i>
+                Dashboard
+            </a>
+            <a href="#" class="nav-item" onclick="showSection('keys')">
+                <i class="fas fa-key"></i>
+                API Keys
+            </a>
+            <a href="#" class="nav-item" onclick="showSection('analytics')">
+                <i class="fas fa-chart-bar"></i>
+                Analytics
+            </a>
+            <a href="#" class="nav-item" onclick="showSection('usage')">
+                <i class="fas fa-activity"></i>
+                Usage
+            </a>
+            <a href="#" class="nav-item" onclick="showSection('billing')">
+                <i class="fas fa-credit-card"></i>
+                Billing
+            </a>
+            <a href="#" class="nav-item" onclick="showSection('settings')">
+                <i class="fas fa-cog"></i>
+                Settings
+            </a>
+        </nav>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>Dashboard</h1>
+                <p style="color: #718096;">Welcome back! Here's what's happening with your APIs.</p>
+            </div>
+            
+            <div class="user-info">
+                <div>
+                    <div style="font-weight: 600;">John Doe</div>
+                    <div style="font-size: 0.8rem; color: #718096;">Pro Plan</div>
+                </div>
+                <div class="user-avatar">JD</div>
+            </div>
+        </div>
+        
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: #10b981;">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="stat-change positive">+15.3%</div>
+                </div>
+                <div class="stat-value">$2,847</div>
+                <div class="stat-label">Monthly Savings</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: #3b82f6;">
+                        <i class="fas fa-paper-plane"></i>
+                    </div>
+                    <div class="stat-change positive">+8.2%</div>
+                </div>
+                <div class="stat-value">1.2M</div>
+                <div class="stat-label">API Requests</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: #8b5cf6;">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-change positive">-12ms</div>
+                </div>
+                <div class="stat-value">187ms</div>
+                <div class="stat-label">Avg Response Time</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: #f59e0b;">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="stat-change positive">+0.01%</div>
+                </div>
+                <div class="stat-value">99.97%</div>
+                <div class="stat-label">Uptime</div>
+            </div>
+        </div>
+        
+        <!-- Content Grid -->
+        <div class="content-grid">
+            <!-- Main Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">API Usage Overview</h3>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                </div>
+                
+                <div class="chart-placeholder">
+                    📊 Interactive usage charts and cost optimization insights would appear here
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Recent Activity</h3>
+                </div>
+                
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">New API key added</div>
+                        <div class="activity-time">2 minutes ago</div>
+                    </div>
+                </div>
+                
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">Cost optimization saved $47</div>
+                        <div class="activity-time">1 hour ago</div>
+                    </div>
+                </div>
+                
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">Security scan completed</div>
+                        <div class="activity-time">3 hours ago</div>
+                    </div>
+                </div>
+                
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">Usage alert: 80% quota reached</div>
+                        <div class="activity-time">1 day ago</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API Keys Section -->
+        <div class="card" style="margin-top: 2rem;">
+            <div class="card-header">
+                <h3 class="card-title">Your API Keys</h3>
+                <button class="btn btn-primary" onclick="addApiKey()">
+                    <i class="fas fa-plus"></i> Add New Key
+                </button>
+            </div>
+            
+            <div class="key-item">
+                <div class="key-info">
+                    <h4>Stripe Payment API</h4>
+                    <p>sk_live_****...1234 • Last used 2 hours ago</p>
+                </div>
+                <div>
+                    <span class="key-status status-active">Active</span>
+                </div>
+            </div>
+            
+            <div class="key-item">
+                <div class="key-info">
+                    <h4>OpenAI GPT-4</h4>
+                    <p>sk-****...5678 • Last used 5 minutes ago</p>
+                </div>
+                <div>
+                    <span class="key-status status-active">Active</span>
+                </div>
+            </div>
+            
+            <div class="key-item">
+                <div class="key-info">
+                    <h4>SendGrid Email</h4>
+                    <p>SG.****...9012 • Last used 1 day ago</p>
+                </div>
+                <div>
+                    <span class="key-status status-active">Active</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showSection(section) {
+            // Remove active class from all nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Add active class to clicked item
+            event.target.classList.add('active');
+            
+            // In a real app, this would show different content
+            alert(`Showing ${section} section - this would load different content in a real dashboard`);
+        }
+        
+        function addApiKey() {
+            const modal = document.createElement('div');
+            modal.innerHTML = `
+                <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+                    <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 500px; width: 90%;">
+                        <h3 style="margin-bottom: 1.5rem; color: #2d3748;">Add New API Key</h3>
+                        <form id="keyForm">
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Service Name</label>
+                                <select required style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                    <option value="">Select a service</option>
+                                    <option value="stripe">Stripe</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="sendgrid">SendGrid</option>
+                                    <option value="twilio">Twilio</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">API Key</label>
+                                <input type="password" placeholder="Enter your API key" required style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+                            </div>
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Description (optional)</label>
+                                <input type="text" placeholder="e.g., Production payment processing" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+                            </div>
+                            <div style="display: flex; gap: 1rem;">
+                                <button type="submit" style="flex: 1; padding: 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; font-weight: 600;">Add API Key</button>
+                                <button type="button" onclick="this.closest('[style*=\"position: fixed\"]').remove()" style="padding: 0.75rem 1.5rem; background: #f7fafc; color: #4a5568; border: 1px solid #e2e8f0; border-radius: 6px;">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            document.getElementById('keyForm').onsubmit = function(e) {
+                e.preventDefault();
+                alert('API Key added successfully! It has been encrypted and is ready to use.');
+                modal.remove();
+                // In a real app, this would make an API call to add the key
+            };
+        }
+        
+        // Simulate real-time updates
+        function updateMetrics() {
+            const savings = document.querySelector('.stat-value');
+            if (savings && savings.textContent.includes('$')) {
+                const currentValue = parseInt(savings.textContent.replace('$', '').replace(',', ''));
+                const newValue = currentValue + Math.floor(Math.random() * 10);
+                savings.textContent = `$${newValue.toLocaleString()}`;
+            }
+        }
+        
+        // Update metrics every 30 seconds
+        setInterval(updateMetrics, 30000);
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Customer dashboard loaded successfully');
+            
+            // Simulate API health check
+            setTimeout(() => {
+                console.log('API health check: All systems operational');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

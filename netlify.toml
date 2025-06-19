@@ -7,8 +7,19 @@
   NODE_VERSION = "18"
 
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  from = "/"
+  to = "/customer-ui.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/index.html"
+  to = "/customer-ui.html"
+  status = 301
+
+[[redirects]]
+  from = "/api-docs"
+  to = "/index.html"
   status = 200
 
 [[redirects]]
