@@ -1,0 +1,507 @@
+import { User, ApiKey as PrismaApiKey, UsageRecord, Prisma } from '@prisma/client';
+import { db } from './databaseService';
+import { monitoring } from './monitoringService';
+import { ApiKey, KeyMetadata, KeyTier, KeyStatus, ServiceType } from '../models/types';
+import { EncryptionService } from './encryptionService';
+import { Logger } from '../utils/logger';
+
+type ApiKeyWithUser = PrismaApiKey & { user?: User };
+
+// Enum conversion helpers
+const convertServiceType = (type: ServiceType): string => type;
+const convertKeyTier = (tier: KeyTier): string => tier;
+const convertKeyStatus = (status: KeyStatus): string => status;
+
+export class DatabaseKeyManagementService {
+  /**
+   * Register a new API key
+   */
+  static async registerKey(
+    userId: string,
+    key: string,
+    metadata: KeyMetadata,
+    tier: KeyTier = KeyTier.FREE
+  ): Promise<ApiKey> {
+    try {
+      // Validate key format
+      const validation = EncryptionService.validateKeyFormat(key);
+      if (!validation.valid) {
+        throw new Error(`Invalid key format: ${validation.issues.join(', ')}`);
+      }
+
+      // Check for duplicate keys
+      const keyHash = EncryptionService.createKeyHash(key);
+      const existingKey = await db.db.apiKey.findUnique({
+        where: { keyHash },
+      });
+
+      if (existingKey) {
+        throw new Error('Key already exists');
+      }
+
+      // Encrypt the key
+      const encryptedKey = EncryptionService.encrypt(key);
+
+      // Create new API key record
+      const apiKey = await db.db.apiKey.create({
+        data: {
+          userId,
+          keyHash,
+          encryptedKey,
+          serviceName: metadata.service,
+          serviceType: convertServiceType(metadata.type) as any,
+          tier: convertKeyTier(tier) as any,
+          status: convertKeyStatus(KeyStatus.ACTIVE) as any,
+          quota: metadata.quota,
+          quotaPeriod: metadata.quotaPeriod || 'monthly',
+          quotaResetAt: this.calculateQuotaResetTime(metadata.quotaPeriod || 'monthly'),
+          metadata: metadata as any,
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      // Record metrics
+      monitoring.recordApiKeyUsage(metadata.service, tier, userId);
+
+      // Invalidate cache
+      await db.cacheDel(`user:${userId}:keys`);
+
+      Logger.info('API key registered', {
+        keyId: apiKey.id,
+        userId,
+        service: metadata.service,
+        tier,
+      });
+
+      return this.mapPrismaToApiKey(apiKey);
+    } catch (error) {
+      monitoring.recordError('key_registration', metadata.service, 'REGISTRATION_FAILED');
+      throw error;
+    }
+  }
+
+  /**
+   * Get key by ID
+   */
+  static async getKey(keyId: string, userId?: string): Promise<ApiKey | null> {
+    try {
+      const cacheKey = `key:${keyId}`;
+      const cached = await db.cacheGet<ApiKey>(cacheKey);
+      
+      if (cached && (!userId || cached.userId === userId)) {
+        return cached;
+      }
+
+      const key = await db.db.apiKey.findFirst({
+        where: {
+          id: keyId,
+          ...(userId && { userId }),
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      if (!key) {
+        return null;
+      }
+
+      const apiKey = this.mapPrismaToApiKey(key);
+      
+      // Cache for 5 minutes
+      await db.cacheSet(cacheKey, apiKey, 300);
+
+      return apiKey;
+    } catch (error) {
+      Logger.error('Failed to get key', { keyId, error });
+      return null;
+    }
+  }
+
+  /**
+   * Get key by hash (for internal routing)
+   */
+  static async getKeyByHash(keyHash: string): Promise<ApiKey | null> {
+    try {
+      const cacheKey = `keyhash:${keyHash}`;
+      const cached = await db.cacheGet<ApiKey>(cacheKey);
+      
+      if (cached) {
+        return cached;
+      }
+
+      const key = await db.db.apiKey.findUnique({
+        where: { keyHash },
+        include: {
+          user: true,
+        },
+      });
+
+      if (!key) {
+        return null;
+      }
+
+      const apiKey = this.mapPrismaToApiKey(key);
+      
+      // Cache for 1 minute (shorter for routing lookups)
+      await db.cacheSet(cacheKey, apiKey, 60);
+
+      return apiKey;
+    } catch (error) {
+      Logger.error('Failed to get key by hash', { keyHash, error });
+      return null;
+    }
+  }
+
+  /**
+   * List keys for a user
+   */
+  static async listKeys(userId: string, filters?: {
+    service?: string;
+    tier?: KeyTier;
+    status?: KeyStatus;
+    type?: ServiceType;
+  }): Promise<ApiKey[]> {
+    try {
+      const cacheKey = `user:${userId}:keys:${JSON.stringify(filters || {})}`;
+      const cached = await db.cacheGet<ApiKey[]>(cacheKey);
+      
+      if (cached) {
+        return cached;
+      }
+
+      const whereClause: any = { userId };
+
+      if (filters) {
+        if (filters.service) whereClause.serviceName = filters.service;
+        if (filters.tier) whereClause.tier = filters.tier;
+        if (filters.status) whereClause.status = filters.status;
+        if (filters.type) whereClause.serviceType = filters.type;
+      }
+
+      const keys = await db.db.apiKey.findMany({
+        where: whereClause,
+        include: {
+          user: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      const apiKeys = keys.map((key: ApiKeyWithUser) => this.mapPrismaToApiKey(key));
+      
+      // Cache for 2 minutes
+      await db.cacheSet(cacheKey, apiKeys, 120);
+
+      return apiKeys;
+    } catch (error) {
+      Logger.error('Failed to list keys', { userId, filters, error });
+      return [];
+    }
+  }
+
+  /**
+   * Update key metadata
+   */
+  static async updateKey(
+    keyId: string,
+    userId: string,
+    updates: Partial<Pick<ApiKey, 'metadata' | 'status' | 'tier'>>
+  ): Promise<ApiKey | null> {
+    try {
+      const updateData: any = {};
+
+      if (updates.metadata) {
+        updateData.metadata = updates.metadata as any;
+      }
+      if (updates.status !== undefined) {
+        updateData.status = updates.status;
+      }
+      if (updates.tier !== undefined) {
+        updateData.tier = updates.tier;
+      }
+
+      updateData.updatedAt = new Date();
+
+      const key = await db.db.apiKey.update({
+        where: {
+          id: keyId,
+          userId,
+        },
+        data: updateData,
+        include: {
+          user: true,
+        },
+      });
+
+      // Invalidate caches
+      await Promise.all([
+        db.cacheDel(`key:${keyId}`),
+        db.cacheDel(`user:${userId}:keys`),
+        db.cacheDel(`keyhash:${key.keyHash}`),
+      ]);
+
+      Logger.info('API key updated', {
+        keyId,
+        userId,
+        updates,
+      });
+
+      return this.mapPrismaToApiKey(key);
+    } catch (error) {
+      Logger.error('Failed to update key', { keyId, userId, error });
+      return null;
+    }
+  }
+
+  /**
+   * Delete a key
+   */
+  static async deleteKey(keyId: string, userId: string): Promise<boolean> {
+    try {
+      const key = await db.db.apiKey.findFirst({
+        where: {
+          id: keyId,
+          userId,
+        },
+      });
+
+      if (!key) {
+        return false;
+      }
+
+      await db.db.apiKey.delete({
+        where: {
+          id: keyId,
+        },
+      });
+
+      // Invalidate caches
+      await Promise.all([
+        db.cacheDel(`key:${keyId}`),
+        db.cacheDel(`user:${userId}:keys`),
+        db.cacheDel(`keyhash:${key.keyHash}`),
+      ]);
+
+      Logger.info('API key deleted', {
+        keyId,
+        userId,
+        service: key.serviceName,
+      });
+
+      return true;
+    } catch (error) {
+      Logger.error('Failed to delete key', { keyId, userId, error });
+      return false;
+    }
+  }
+
+  /**
+   * Record key usage
+   */
+  static async recordUsage(keyId: string, cost: number = 1, requestData?: {
+    method: string;
+    endpoint: string;
+    service: string;
+    statusCode: number;
+    responseTime: number;
+    userAgent?: string;
+    ipAddress?: string;
+  }): Promise<void> {
+    try {
+      // Update key usage
+      await db.db.apiKey.update({
+        where: { id: keyId },
+        data: {
+          totalRequests: { increment: 1 },
+          dailyRequests: { increment: 1 },
+          monthlyRequests: { increment: 1 },
+          quotaUsed: { increment: cost },
+          lastUsed: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      // Record detailed usage if provided
+      if (requestData) {
+        const key = await db.db.apiKey.findUnique({
+          where: { id: keyId },
+          select: { userId: true, tier: true },
+        });
+
+        if (key) {
+          await db.db.usageRecord.create({
+            data: {
+              userId: key.userId,
+              keyId,
+              method: requestData.method,
+              endpoint: requestData.endpoint,
+              service: requestData.service,
+              tier: key.tier,
+              statusCode: requestData.statusCode,
+              responseTime: requestData.responseTime,
+              cost,
+              userAgent: requestData.userAgent,
+              ipAddress: requestData.ipAddress,
+              isError: requestData.statusCode >= 400,
+            },
+          });
+
+          // Record metrics
+          monitoring.recordApiKeyUsage(requestData.service, key.tier, key.userId);
+        }
+      }
+
+      // Invalidate caches
+      await Promise.all([
+        db.cacheDel(`key:${keyId}`),
+        db.cacheDel(`keyhash:*`), // Invalidate all hash caches (wildcard pattern)
+      ]);
+    } catch (error) {
+      Logger.error('Failed to record usage', { keyId, cost, error });
+    }
+  }
+
+  /**
+   * Check if key has remaining quota
+   */
+  static async checkQuota(keyId: string): Promise<{
+    hasQuota: boolean;
+    remaining: number;
+    limit: number;
+    used: number;
+  }> {
+    try {
+      const key = await db.db.apiKey.findUnique({
+        where: { id: keyId },
+        select: {
+          quota: true,
+          quotaUsed: true,
+          quotaResetAt: true,
+          quotaPeriod: true,
+        },
+      });
+
+      if (!key) {
+        return { hasQuota: false, remaining: 0, limit: 0, used: 0 };
+      }
+
+      // Check if quota should be reset
+      if (new Date() > key.quotaResetAt) {
+        await this.resetQuota(keyId, key.quotaPeriod);
+        return { hasQuota: true, remaining: key.quota, limit: key.quota, used: 0 };
+      }
+
+      const used = key.quotaUsed;
+      const remaining = Math.max(0, key.quota - used);
+
+      return {
+        hasQuota: remaining > 0,
+        remaining,
+        limit: key.quota,
+        used,
+      };
+    } catch (error) {
+      Logger.error('Failed to check quota', { keyId, error });
+      return { hasQuota: false, remaining: 0, limit: 0, used: 0 };
+    }
+  }
+
+  /**
+   * Get decrypted key for API calls (internal use only)
+   */
+  static async getDecryptedKey(keyId: string): Promise<string | null> {
+    try {
+      const key = await db.db.apiKey.findFirst({
+        where: {
+          id: keyId,
+          status: KeyStatus.ACTIVE,
+        },
+        select: {
+          encryptedKey: true,
+        },
+      });
+
+      if (!key) {
+        return null;
+      }
+
+      return EncryptionService.decrypt(key.encryptedKey);
+    } catch (error) {
+      Logger.error('Failed to decrypt key', { keyId, error: (error as Error).message });
+      return null;
+    }
+  }
+
+  /**
+   * Reset quota for a key
+   */
+  private static async resetQuota(keyId: string, quotaPeriod: string): Promise<void> {
+    try {
+      await db.db.apiKey.update({
+        where: { id: keyId },
+        data: {
+          quotaUsed: 0,
+          quotaResetAt: this.calculateQuotaResetTime(quotaPeriod),
+          updatedAt: new Date(),
+        },
+      });
+
+      // Invalidate caches
+      await db.cacheDel(`key:${keyId}`);
+    } catch (error) {
+      Logger.error('Failed to reset quota', { keyId, error });
+    }
+  }
+
+  /**
+   * Calculate next quota reset time
+   */
+  private static calculateQuotaResetTime(period: string): Date {
+    const now = new Date();
+    
+    switch (period) {
+      case 'hourly':
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1);
+      case 'daily':
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      case 'monthly':
+        return new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      case 'yearly':
+        return new Date(now.getFullYear() + 1, 0, 1);
+      default:
+        return new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    }
+  }
+
+  /**
+   * Map Prisma ApiKey to our ApiKey type
+   */
+  private static mapPrismaToApiKey(prismaKey: ApiKeyWithUser): ApiKey {
+    return {
+      id: prismaKey.id,
+      userId: prismaKey.userId,
+      key: '', // Never return the actual key
+      keyHash: prismaKey.keyHash,
+      metadata: {
+        type: prismaKey.serviceType as ServiceType,
+        service: prismaKey.serviceName,
+        quota: prismaKey.quota,
+        quotaUsed: prismaKey.quotaUsed,
+        quotaPeriod: prismaKey.quotaPeriod as any,
+        ...(prismaKey.metadata as any),
+      },
+      tier: prismaKey.tier as KeyTier,
+      status: prismaKey.status as KeyStatus,
+      createdAt: prismaKey.createdAt,
+      updatedAt: prismaKey.updatedAt,
+      lastUsed: prismaKey.lastUsed,
+      usageCount: prismaKey.totalRequests,
+      dailyUsage: prismaKey.dailyRequests,
+      monthlyUsage: prismaKey.monthlyRequests,
+    };
+  }
+}
