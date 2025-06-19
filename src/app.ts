@@ -7,9 +7,9 @@ import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
 import { authentication } from './middleware/authentication';
 import authRoutes from './routes/authRoutes';
-import keyRoutes from './routes/keyRoutes.simple';
-import proxyRoutes from './routes/proxyRoutes.simple';
-import analyticsRoutes from './routes/analyticsRoutes.simple';
+import keyRoutes from './routes/keyRoutes';
+import proxyRoutes from './routes/proxyRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
 import monitoringRoutes from './routes/monitoringRoutes';
 import { Logger } from './utils/logger';
 

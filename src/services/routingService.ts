@@ -1,0 +1,285 @@
+import { ServiceConfig, ServiceType, KeyTier, RoutingDecision, ApiKey } from '../models/types';
+import { DatabaseKeyManagementService } from './databaseKeyManagementService';
+import { Logger } from '../utils/logger';
+
+export class RoutingService {
+  private static serviceConfigs: Map<string, ServiceConfig> = new Map();
+
+  /**
+   * Initialize with predefined service configurations
+   */
+  static initialize(): void {
+    // Stripe Payment Processing
+    this.addServiceConfig({
+      name: 'stripe',
+      type: ServiceType.PAYMENT,
+      baseUrl: 'https://api.stripe.com/v1',
+      authMethod: 'bearer',
+      authKey: 'Authorization',
+      freeTierLimit: 100,
+      freeTierPeriod: 'monthly',
+      rateLimitPerSecond: 10,
+      retryConfig: {
+        maxRetries: 3,
+        backoffMs: 1000
+      },
+      endpoints: {
+        'charges': { path: '/charges', method: 'POST', cost: 1 },
+        'customers': { path: '/customers', method: 'POST', cost: 1 },
+        'invoices': { path: '/invoices', method: 'GET', cost: 1 }
+      }
+    });
+
+    // OpenWeather API
+    this.addServiceConfig({
+      name: 'openweather',
+      type: ServiceType.WEATHER,
+      baseUrl: 'https://api.openweathermap.org/data/2.5',
+      authMethod: 'query',
+      authKey: 'appid',
+      freeTierLimit: 1000,
+      freeTierPeriod: 'monthly',
+      rateLimitPerSecond: 60,
+      endpoints: {
+        'current': { path: '/weather', method: 'GET', cost: 1 },
+        'forecast': { path: '/forecast', method: 'GET', cost: 1 },
+        'history': { path: '/onecall/timemachine', method: 'GET', cost: 5 }
+      }
+    });
+
+    // Google Maps
+    this.addServiceConfig({
+      name: 'googlemaps',
+      type: ServiceType.MAPPING,
+      baseUrl: 'https://maps.googleapis.com/maps/api',
+      authMethod: 'query',
+      authKey: 'key',
+      freeTierLimit: 200,
+      freeTierPeriod: 'monthly',
+      rateLimitPerSecond: 50,
+      endpoints: {
+        'geocoding': { path: '/geocode/json', method: 'GET', cost: 1 },
+        'directions': { path: '/directions/json', method: 'GET', cost: 1 },
+        'places': { path: '/place/nearbysearch/json', method: 'GET', cost: 2 }
+      }
+    });
+
+    // OpenAI API
+    this.addServiceConfig({
+      name: 'openai',
+      type: ServiceType.AI,
+      baseUrl: 'https://api.openai.com/v1',
+      authMethod: 'bearer',
+      authKey: 'Authorization',
+      freeTierLimit: 0, // No free tier
+      freeTierPeriod: 'monthly',
+      rateLimitPerSecond: 20,
+      endpoints: {
+        'chat': { path: '/chat/completions', method: 'POST', cost: 10 },
+        'completions': { path: '/completions', method: 'POST', cost: 10 },
+        'embeddings': { path: '/embeddings', method: 'POST', cost: 1 }
+      }
+    });
+
+    Logger.info('Routing service initialized with service configurations');
+  }
+
+  /**
+   * Add a new service configuration
+   */
+  static addServiceConfig(config: ServiceConfig): void {
+    this.serviceConfigs.set(config.name, config);
+    Logger.debug('Service configuration added', { service: config.name });
+  }
+
+  /**
+   * Route a request to the best available key
+   */
+  static async routeRequest(
+    userId: string,
+    serviceHint?: string,
+    endpoint?: string
+  ): Promise<RoutingDecision> {
+    // Get user's keys
+    const userKeys = await DatabaseKeyManagementService.listKeys(userId);
+    
+    if (userKeys.length === 0) {
+      throw new Error('No API keys available for user');
+    }
+
+    // Filter by service hint if provided
+    let candidateKeys = userKeys;
+    if (serviceHint) {
+      candidateKeys = userKeys.filter((key: ApiKey) =>
+        key.metadata.service.toLowerCase() === serviceHint.toLowerCase()
+      );
+    }
+
+    if (candidateKeys.length === 0) {
+      throw new Error(`No keys available for service: ${serviceHint}`);
+    }
+
+    // Prioritize keys based on tier and quota
+    const sortedKeys = this.prioritizeKeys(candidateKeys, endpoint);
+
+    for (const key of sortedKeys) {
+      const quota = await DatabaseKeyManagementService.checkQuota(key.id);
+      
+      if (quota.hasQuota || key.tier === KeyTier.PAID) {
+        const service = this.serviceConfigs.get(key.metadata.service);
+        
+        if (!service) {
+          Logger.warn('Service configuration not found', { service: key.metadata.service });
+          continue;
+        }
+
+        const estimatedCost = this.calculateCost(service, endpoint);
+
+        return {
+          keyId: key.id,
+          service,
+          reason: this.generateRoutingReason(key, quota, estimatedCost),
+          tier: key.tier,
+          estimatedCost
+        };
+      }
+    }
+
+    throw new Error('No keys with available quota found');
+  }
+
+  /**
+   * Prioritize keys for routing
+   */
+  private static prioritizeKeys(keys: ApiKey[], endpoint?: string): ApiKey[] {
+    return keys.sort((a, b) => {
+      // Priority 1: Free tier first (if has quota)
+      if (a.tier === KeyTier.FREE && b.tier !== KeyTier.FREE) return -1;
+      if (b.tier === KeyTier.FREE && a.tier !== KeyTier.FREE) return 1;
+
+      // Priority 2: Keys with more remaining quota
+      const aUsed = a.metadata.quotaUsed || 0;
+      const bUsed = b.metadata.quotaUsed || 0;
+      const aRemaining = a.metadata.quota - aUsed;
+      const bRemaining = b.metadata.quota - bUsed;
+      
+      if (aRemaining !== bRemaining) {
+        return bRemaining - aRemaining; // Higher remaining first
+      }
+
+      // Priority 3: Less recently used
+      const aLastUsed = a.lastUsed?.getTime() || 0;
+      const bLastUsed = b.lastUsed?.getTime() || 0;
+      
+      return aLastUsed - bLastUsed; // Older usage first
+    });
+  }
+
+  /**
+   * Calculate estimated cost for an endpoint
+   */
+  private static calculateCost(service: ServiceConfig, endpoint?: string): number {
+    if (!endpoint || !service.endpoints) {
+      return 1; // Default cost
+    }
+
+    const endpointConfig = service.endpoints[endpoint];
+    return endpointConfig?.cost || 1;
+  }
+
+  /**
+   * Generate human-readable routing reason
+   */
+  private static generateRoutingReason(
+    key: ApiKey,
+    quota: { hasQuota: boolean; remaining: number },
+    cost: number
+  ): string {
+    const reasons = [];
+
+    if (key.tier === KeyTier.FREE) {
+      reasons.push('free tier prioritized');
+    }
+
+    if (quota.hasQuota) {
+      reasons.push(`${quota.remaining} quota remaining`);
+    } else if (key.tier === KeyTier.PAID) {
+      reasons.push('paid tier (unlimited)');
+    }
+
+    if (cost > 1) {
+      reasons.push(`estimated cost: ${cost} credits`);
+    }
+
+    return reasons.join(', ');
+  }
+
+  /**
+   * Get service configuration by name
+   */
+  static getServiceConfig(serviceName: string): ServiceConfig | undefined {
+    return this.serviceConfigs.get(serviceName);
+  }
+
+  /**
+   * List all available services
+   */
+  static listServices(): ServiceConfig[] {
+    return Array.from(this.serviceConfigs.values());
+  }
+
+  /**
+   * Check if a service supports free tier
+   */
+  static hasFreeTier(serviceName: string): boolean {
+    const service = this.serviceConfigs.get(serviceName);
+    return service ? service.freeTierLimit > 0 : false;
+  }
+
+  /**
+   * Get recommended services for a service type
+   */
+  static getServicesByType(type: ServiceType): ServiceConfig[] {
+    return Array.from(this.serviceConfigs.values())
+      .filter(service => service.type === type);
+  }
+
+  /**
+   * Update service configuration
+   */
+  static updateServiceConfig(serviceName: string, updates: Partial<ServiceConfig>): boolean {
+    const existing = this.serviceConfigs.get(serviceName);
+    if (!existing) {
+      return false;
+    }
+
+    const updated = { ...existing, ...updates };
+    this.serviceConfigs.set(serviceName, updated);
+
+    Logger.info('Service configuration updated', { service: serviceName, updates });
+    return true;
+  }
+
+  /**
+   * Smart service detection based on key patterns
+   */
+  static detectService(key: string): string | null {
+    const patterns = [
+      { regex: /^sk_(test|live)_/, service: 'stripe' },
+      { regex: /^pk_(test|live)_/, service: 'stripe' },
+      { regex: /^AIza[0-9A-Za-z_-]{35}$/, service: 'googlemaps' },
+      { regex: /^[a-f0-9]{32}$/, service: 'openweather' },
+      { regex: /^sk-[A-Za-z0-9]{48}$/, service: 'openai' },
+      { regex: /^xoxb-/, service: 'slack' },
+      { regex: /^ghp_/, service: 'github' }
+    ];
+
+    for (const pattern of patterns) {
+      if (pattern.regex.test(key)) {
+        return pattern.service;
+      }
+    }
+
+    return null;
+  }
+}
