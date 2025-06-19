@@ -1,0 +1,46 @@
+[build]
+  command = "npm run build:netlify"
+  functions = "netlify/functions"
+  publish = "public"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/auth/*"
+  to = "/.netlify/functions/api/auth/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/keys*"
+  to = "/.netlify/functions/api/keys:splat"
+  status = 200
+
+[[redirects]]
+  from = "/proxy*"
+  to = "/.netlify/functions/api/proxy:splat"
+  status = 200
+
+[[redirects]]
+  from = "/analytics/*"
+  to = "/.netlify/functions/api/analytics/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/monitoring/*"
+  to = "/.netlify/functions/api/monitoring/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/api/health"
+  status = 200
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@prisma/client"]

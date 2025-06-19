@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Key Wallet - Production Ready</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f8fafc;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .status {
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .endpoint {
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 8px 0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+        }
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #2563eb;
+        }
+        #results {
+            background: #1f2937;
+            color: #10b981;
+            padding: 16px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 API Key Wallet</h1>
+        <div class="status">PRODUCTION READY</div>
+        <p>Enterprise-grade API key management platform</p>
+    </div>
+
+    <div class="card">
+        <h2>🔗 API Endpoints</h2>
+        <p>Your API is running successfully! Test the endpoints below:</p>
+        
+        <h3>Public Endpoints</h3>
+        <div class="endpoint">GET /health</div>
+        <div class="endpoint">POST /auth/register</div>
+        <div class="endpoint">POST /auth/login</div>
+        
+        <h3>Protected Endpoints (require JWT)</h3>
+        <div class="endpoint">GET /keys</div>
+        <div class="endpoint">POST /keys</div>
+        <div class="endpoint">POST /proxy</div>
+        <div class="endpoint">GET /analytics/overview</div>
+        <div class="endpoint">GET /monitoring/metrics</div>
+    </div>
+
+    <div class="card">
+        <h2>🧪 Quick Test</h2>
+        <button class="test-button" onclick="testHealth()">Test Health</button>
+        <button class="test-button" onclick="testAPI()">Test API Info</button>
+        <button class="test-button" onclick="testRegister()">Test Registration</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <div class="card">
+        <h2>📚 Documentation</h2>
+        <p><strong>Repository:</strong> <a href="https://github.com/satishskid/api-key-wallet" target="_blank">github.com/satishskid/api-key-wallet</a></p>
+        <p><strong>Deployment Guide:</strong> See NETLIFY_DEPLOY.md in the repository</p>
+        <p><strong>API Documentation:</strong> See API.md for complete endpoint reference</p>
+    </div>
+
+    <script>
+        const baseURL = window.location.origin;
+        const results = document.getElementById('results');
+
+        function log(message) {
+            results.textContent += new Date().toISOString() + ': ' + message + '\n';
+            results.scrollTop = results.scrollHeight;
+        }
+
+        async function testHealth() {
+            try {
+                log('Testing /health endpoint...');
+                const response = await fetch(`${baseURL}/health`);
+                const data = await response.json();
+                log(`✅ Health check successful: ${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                log(`❌ Health check failed: ${error.message}`);
+            }
+        }
+
+        async function testAPI() {
+            try {
+                log('Testing API info endpoint...');
+                const response = await fetch(`${baseURL}/`);
+                const data = await response.json();
+                log(`✅ API info successful: ${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                log(`❌ API info failed: ${error.message}`);
+            }
+        }
+
+        async function testRegister() {
+            try {
+                log('Testing user registration...');
+                const response = await fetch(`${baseURL}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'SecurePassword123!',
+                        name: 'Test User'
+                    })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    log(`✅ Registration successful: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    log(`⚠️ Registration response: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                log(`❌ Registration failed: ${error.message}`);
+            }
+        }
+
+        // Auto-test health on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            testHealth();
+        });
+    </script>
+</body>
+</html>
