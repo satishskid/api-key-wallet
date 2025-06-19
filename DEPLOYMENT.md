@@ -1,262 +1,295 @@
 # 🚀 API Key Wallet - Production Deployment Guide
 
-## ✅ Current Status: Ready for Deployment
+*Go from zero to revenue-generating production in under 30 minutes.*
 
-Your API Key Wallet is **production-ready** with the following features:
+## 📋 **Pre-Deployment Checklist**
 
-### ✅ Implemented Features
-- ✅ **Core API Endpoints**: Keys management, proxy, analytics, monitoring
-- ✅ **Authentication**: JWT-based auth with registration/login
-- ✅ **Security**: Helmet, CORS, rate limiting, input validation
-- ✅ **Monitoring**: Prometheus metrics, health checks
-- ✅ **Database Ready**: Prisma schema and connection configured
-- ✅ **Docker Support**: Complete containerization setup
-- ✅ **Error Handling**: Comprehensive error middleware
-- ✅ **Logging**: Structured logging with different levels
+### **Requirements**
+- [ ] Server/Cloud instance (2GB+ RAM, 20GB+ storage)
+- [ ] Domain name for your service
+- [ ] SSL certificate (Let's Encrypt recommended)
+- [ ] Email service (SendGrid, Mailgun, or AWS SES)
+- [ ] Payment processor account (Stripe recommended)
 
-### 🏗️ Architecture Ready
-- **API Gateway**: Express.js with security middleware
-- **Database**: PostgreSQL with Prisma ORM
-- **Cache**: Redis for session and performance
-- **Monitoring**: Prometheus + Grafana
-- **Containerization**: Docker + Docker Compose
-
-## 🚀 Quick Deployment
-
-### 1. Set Required Environment Variables
-```bash
-export JWT_SECRET="your-super-secret-jwt-key-min-32-chars"
-export ENCRYPTION_KEY="your-32-character-encryption-key!!"
-```
-
-### 2. Deploy with Docker
-```bash
-npm run deploy
-```
-
-### 3. Access Your API
-- **API Wallet**: http://localhost:6789
-- **Health Check**: http://localhost:6789/monitoring/health
-- **Metrics**: http://localhost:6789/monitoring/metrics
-
-## 📖 API Usage
-
-### Authentication
-```bash
-# Register a user
-curl -X POST http://localhost:6789/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123","name":"Test User"}'
-
-# Login to get token
-curl -X POST http://localhost:6789/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123"}'
-```
-
-### Key Management
-```bash
-# Register API key
-curl -X POST http://localhost:6789/keys \
-  -H "Authorization: Bearer <your-jwt-token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "key": "sk_test_123...",
-    "service": "stripe",
-    "tier": "paid",
-    "metadata": {"type": "payment", "quota": 10000}
-  }'
-
-# List keys
-curl -H "Authorization: Bearer <your-jwt-token>" \
-  http://localhost:6789/keys
-```
-
-### Proxy Requests
-```bash
-# Route request through wallet
-curl -X POST http://localhost:6789/proxy \
-  -H "Authorization: Bearer <your-jwt-token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "endpoint": "/v1/charges",
-    "method": "POST",
-    "body": {"amount": 2000, "currency": "usd"}
-  }'
-```
-
-### Analytics
-```bash
-# Get usage overview
-curl -H "Authorization: Bearer <your-jwt-token>" \
-  http://localhost:6789/analytics/overview
-```
-
-## 💳 Monetization Ready
-
-### Payment Integration Points (Future)
-- **Stripe Integration**: Ready for subscription billing
-- **Usage-Based Pricing**: Cost tracking per request
-- **Tier Management**: Free/Paid/Premium tiers implemented
-- **Quota Management**: Usage limits and enforcement
-
-### Revenue Streams
-1. **Subscription Plans**: Monthly/yearly API access
-2. **Usage-Based Billing**: Pay per API call
-3. **Premium Features**: Advanced routing, analytics
-4. **Enterprise**: Custom quotas, dedicated support
-
-## 🔧 Configuration
-
-### Environment Variables
-```bash
-# Required
-JWT_SECRET=your-super-secret-jwt-key-min-32-chars
-ENCRYPTION_KEY=your-32-character-encryption-key!!
-
-# Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/api_wallet
-REDIS_URL=redis://:password@localhost:6379
-
-# Optional
-NODE_ENV=production
-PORT=6789
-LOG_LEVEL=info
-ENABLE_METRICS=true
-```
-
-### Service Configuration
-The system supports these external APIs out of the box:
-- **Stripe** (Payment processing)
-- **OpenWeather** (Weather data)
-- **Google Maps** (Mapping/geocoding)
-- **OpenAI** (AI/ML APIs)
-- **Custom** (Extensible for any REST API)
-
-## 📊 Monitoring & Observability
-
-### Health Monitoring
-```bash
-# Check service health
-curl http://localhost:6789/monitoring/health
-
-# View Prometheus metrics
-curl http://localhost:6789/monitoring/metrics
-```
-
-### Dashboard Access
-- **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/admin)
-
-### Key Metrics Tracked
-- Request volume and latency
-- Error rates by service
-- API key usage patterns
-- Cost tracking and billing
-- System resource utilization
-
-## 🚚 Production Deployment Options
-
-### Option 1: Docker Compose (Recommended)
-```bash
-# Clone repository
-git clone <your-repo>
-cd api-wallet
-
-# Set environment variables
-export JWT_SECRET="your-secret"
-export ENCRYPTION_KEY="your-key"
-
-# Deploy
-npm run deploy
-```
-
-### Option 2: Manual Setup
-```bash
-# Install dependencies
-npm install
-
-# Set up database
-npm run migrate
-npm run seed
-
-# Build and start
-npm run build
-npm start
-```
-
-### Option 3: Cloud Deployment
-Ready for deployment on:
-- **AWS**: ECS, Lambda, RDS
-- **Google Cloud**: Cloud Run, Cloud SQL
-- **Azure**: Container Instances, Database
-- **DigitalOcean**: App Platform, Managed Database
-
-## 🔐 Security Features
-
-### Authentication & Authorization
-- ✅ JWT-based authentication
-- ✅ Role-based access control (USER/ADMIN)
-- ✅ Password hashing with bcrypt
-- ✅ Session management
-
-### API Security
-- ✅ Rate limiting by user tier
-- ✅ Input validation and sanitization
-- ✅ CORS configuration
-- ✅ Security headers (Helmet.js)
-
-### Data Protection
-- ✅ AES-256 encryption for API keys
-- ✅ Secure key storage with hashing
-- ✅ Audit logging for all operations
-- ✅ Environment variable configuration
-
-## 🏗️ Future Enhancements
-
-### Phase 2: Advanced Features
-- **Clerk Integration**: Enhanced authentication
-- **Stripe Billing**: Automated payment processing
-- **WebSocket Support**: Real-time notifications
-- **GraphQL API**: Advanced querying capabilities
-
-### Phase 3: Enterprise Features
-- **Multi-tenant Support**: Organization management
-- **Advanced Analytics**: Custom dashboards
-- **API Gateway Features**: Load balancing, caching
-- **Compliance**: SOC2, GDPR support
-
-## 📞 Getting Started
-
-1. **Deploy the system** using the quick deployment guide above
-2. **Register your first user** via the `/auth/register` endpoint
-3. **Add your API keys** through the `/keys` endpoint
-4. **Start routing requests** via the `/proxy` endpoint
-5. **Monitor usage** through the analytics dashboard
-
-## 💼 Business Model
-
-### For Developers
-- **Free Tier**: 1,000 requests/month
-- **Pro Tier**: $9/month for 100,000 requests
-- **Enterprise**: Custom pricing for unlimited usage
-
-### Value Proposition
-- **Cost Optimization**: Intelligent routing saves money
-- **Security**: Enterprise-grade key management
-- **Analytics**: Detailed usage insights
-- **Reliability**: Built for production scale
+### **Recommended Infrastructure**
+- **Small Scale** (< 1000 users): Single VPS ($20-50/month)
+- **Medium Scale** (1K-10K users): Load balanced with RDS ($100-300/month)
+- **Enterprise Scale** (10K+ users): Auto-scaling with dedicated DB ($500+/month)
 
 ---
 
-**🎉 Your API Key Wallet is ready for production!**
+## 🏗️ **Production Deployment**
 
-The system is deployed, tested, and ready to start generating revenue. All core features are implemented and the architecture supports future enhancements like Clerk and Stripe integration.
+### **Option 1: Docker Compose (Fastest)**
 
-**Next Steps:**
-1. Deploy using the instructions above
-2. Test the API endpoints
-3. Integrate your first customer
-4. Scale and add advanced features
+```bash
+# 1. Server Setup
+ssh root@your-server.com
+apt update && apt upgrade -y
+apt install docker.io docker-compose git -y
 
-**Support:** Check the API documentation in `API.md` for detailed endpoint reference.
+# 2. Clone Repository
+git clone https://github.com/satishskid/api-key-wallet.git
+cd api-key-wallet
+
+# 3. Configure Environment
+cp .env.example .env
+nano .env  # Edit with your production values
+
+# 4. Generate Production Secrets
+export JWT_SECRET=$(openssl rand -base64 48)
+export ENCRYPTION_KEY=$(openssl rand -base64 32)
+echo "JWT_SECRET=$JWT_SECRET" >> .env
+echo "ENCRYPTION_KEY=$ENCRYPTION_KEY" >> .env
+
+# 5. Start Production Services
+docker-compose up -d
+
+# 6. Initialize Database
+docker exec api-key-wallet_api_1 npm run migrate
+docker exec api-key-wallet_api_1 npm run seed
+
+# 7. Verify Deployment
+curl http://localhost:6789/monitoring/health
+```
+
+### **Option 2: Cloud Platform Deploy**
+
+#### **AWS ECS Deployment**
+```bash
+# Using AWS CLI and ECS
+aws ecs create-cluster --cluster-name api-key-wallet
+aws ecs register-task-definition --cli-input-json file://aws-task-definition.json
+aws ecs create-service --cluster api-key-wallet --service-name api-wallet-service
+```
+
+#### **Google Cloud Run**
+```bash
+# Build and deploy to Cloud Run
+gcloud builds submit --tag gcr.io/PROJECT-ID/api-key-wallet
+gcloud run deploy --image gcr.io/PROJECT-ID/api-key-wallet --platform managed
+```
+
+#### **Azure Container Instances**
+```bash
+# Deploy to Azure
+az container create --resource-group myResourceGroup \
+  --name api-key-wallet --image youracr.azurecr.io/api-key-wallet:latest
+```
+
+---
+
+## ⚙️ **Production Configuration**
+
+### **Environment Variables** (`.env`)
+
+```env
+# Application
+NODE_ENV=production
+PORT=6789
+API_URL=https://api.yourdomain.com
+FRONTEND_URL=https://yourdomain.com
+
+# Database
+DATABASE_URL="postgresql://username:password@db-host:5432/apikey_wallet"
+REDIS_URL="redis://redis-host:6379"
+
+# Security (GENERATE NEW VALUES!)
+JWT_SECRET="your-super-secure-jwt-secret-min-48-chars"
+ENCRYPTION_KEY="your-32-character-encryption-key!!"
+
+# External Services
+SENDGRID_API_KEY="your-sendgrid-api-key"
+STRIPE_SECRET_KEY="sk_live_your-stripe-secret-key"
+STRIPE_WEBHOOK_SECRET="whsec_your-webhook-secret"
+
+# Monitoring
+PROMETHEUS_ENDPOINT="/metrics"
+LOG_LEVEL="info"
+
+# Rate Limiting
+RATE_LIMIT_WINDOW=900000  # 15 minutes
+RATE_LIMIT_MAX=100        # requests per window
+```
+
+---
+
+## 🔒 **Security Hardening**
+
+### **SSL/TLS Setup**
+```bash
+# Install Certbot
+sudo apt install certbot python3-certbot-nginx
+
+# Get SSL certificate
+sudo certbot --nginx -d yourdomain.com -d api.yourdomain.com
+
+# Auto-renewal
+sudo crontab -e
+# Add: 0 12 * * * /usr/bin/certbot renew --quiet
+```
+
+### **Firewall Configuration**
+```bash
+# UFW setup
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+```
+
+---
+
+## 📊 **Post-Deployment Configuration**
+
+### **1. Admin User Setup**
+```bash
+# Create first admin user
+curl -X POST https://yourdomain.com/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@yourdomain.com",
+    "password": "SecurePassword123!",
+    "name": "Admin User"
+  }'
+```
+
+### **2. Test API Endpoints**
+```bash
+# Health check
+curl https://yourdomain.com/monitoring/health
+
+# Register a test API key
+curl -X POST https://yourdomain.com/keys \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "sk_test_demo_key",
+    "service": "demo",
+    "tier": "free"
+  }'
+```
+
+---
+
+## 💳 **Revenue Configuration**
+
+### **Stripe Integration**
+```bash
+# 1. Create Stripe Products
+stripe products create \
+  --name "API Key Wallet Professional" \
+  --description "Professional plan with 100K requests/month"
+
+# 2. Create Pricing Plans
+stripe prices create \
+  --product prod_XXXXXXXX \
+  --unit-amount 4900 \
+  --currency usd \
+  --recurring[interval]=month
+
+# 3. Configure Webhooks
+# URL: https://yourdomain.com/webhooks/stripe
+# Events: customer.subscription.created, invoice.payment_succeeded
+```
+
+---
+
+## 📈 **Business Operations**
+
+### **Customer Success Automation**
+```bash
+# Track key business metrics
+echo "Monitor these KPIs daily:"
+echo "- New user registrations"
+echo "- API key registrations"  
+echo "- Proxy request volume"
+echo "- Error rates and uptime"
+echo "- Customer support tickets"
+```
+
+### **Analytics Dashboard**
+Access your monitoring at:
+- **API Health**: https://yourdomain.com/monitoring/health
+- **Metrics**: https://yourdomain.com/monitoring/metrics  
+- **Grafana**: https://yourdomain.com:3000 (admin/admin)
+
+---
+
+## � **Monitoring & Alerts**
+
+### **Health Check Endpoints**
+- `GET /monitoring/health` - Basic health check
+- `GET /monitoring/metrics` - Prometheus metrics
+- `GET /analytics/overview` - Usage analytics
+
+### **Key Metrics to Monitor**
+- API response times (< 200ms target)
+- Error rates (< 1% target)
+- Database connection health
+- Redis connectivity
+- Disk and memory usage
+
+---
+
+## 🔄 **Backup & Disaster Recovery**
+
+### **Database Backups**
+```bash
+# Manual backup
+pg_dump $DATABASE_URL > backup-$(date +%Y%m%d).sql
+
+# Set up automated backups (add to crontab)
+0 2 * * * pg_dump $DATABASE_URL | gzip > /backups/backup-$(date +\%Y\%m\%d).sql.gz
+```
+
+---
+
+## � **Go-Live Checklist**
+
+### **Pre-Launch** 
+- [ ] Production environment deployed
+- [ ] SSL certificates installed
+- [ ] Database initialized and seeded
+- [ ] Admin user created
+- [ ] Monitoring active
+- [ ] Backups configured
+
+### **Launch Day**
+- [ ] DNS pointed to production server
+- [ ] All endpoints responding correctly
+- [ ] Customer registration working
+- [ ] API key management functional
+- [ ] Proxy routing operational
+
+### **Post-Launch**
+- [ ] Customer feedback collected
+- [ ] Performance metrics reviewed
+- [ ] Error monitoring active
+- [ ] Support documentation ready
+
+---
+
+## 🎯 **Success Metrics**
+
+### **Technical KPIs**
+- **Uptime**: > 99.9%
+- **Response Time**: < 200ms average
+- **Error Rate**: < 1%
+- **Customer Onboarding**: < 5 minutes
+
+### **Business KPIs**
+- **Customer Acquisition**: Track daily signups
+- **API Usage**: Monitor proxy request volume
+- **Revenue**: Track subscription upgrades
+- **Customer Satisfaction**: Gather user feedback
+
+---
+
+**🎉 Your API Key Wallet is now live and ready to serve customers!**
+
+**Repository**: https://github.com/satishskid/api-key-wallet
+
+**Questions?** Check the issues section or create a new issue for support.
