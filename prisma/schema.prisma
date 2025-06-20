@@ -68,6 +68,8 @@ model User {
   
   apiKeys       ApiKey[]
   usageRecords  UsageRecord[]
+  costTracking  CostTracking[]
+  betaFeedback  BetaFeedback[]
   auditLogs     AuditLog[]
   
   @@map("users")
@@ -214,4 +216,38 @@ model MetricSnapshot {
   
   @@map("metric_snapshots")
   @@index([periodStart, granularity])
+}
+
+// Cost tracking for beta testing and validation
+model CostTracking {
+  id           String   @id @default(uuid())
+  userId       String
+  service      String
+  requests     Int
+  totalCost    Decimal  @db.Decimal(10, 4)
+  usedFreeTier Boolean  @default(false)
+  timestamp    DateTime @default(now())
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("cost_tracking")
+  @@index([userId, timestamp])
+  @@index([service, timestamp])
+}
+
+// Beta user feedback
+model BetaFeedback {
+  id            String   @id @default(uuid())
+  userId        String
+  feature       String
+  rating        Int      // 1-5 scale
+  feedback      String?
+  costSavings   Decimal? @db.Decimal(10, 2) // Actual $ saved if reported
+  createdAt     DateTime @default(now())
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("beta_feedback")
+  @@index([userId, createdAt])
+  @@index([feature, rating])
 }
